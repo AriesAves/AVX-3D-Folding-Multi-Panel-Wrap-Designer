@@ -36,7 +36,22 @@ tailwind.config = {
 <style>
 :root { --accent: #1e3a8a; --warm: #b45309; --teal: #0e7470; }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff; color:#0f172a; overflow:hidden; height:70vh; }
+body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff; color:#0f172a; overflow:hidden; }
+/* The app layout used to rely on Tailwind's `h-screen` + `flex` + `flex-1`
+   to fill the viewport, but if the Tailwind CDN is rate-limited, blocked,
+   or just slow to inject its styles, the page renders as a default
+   block-flow document — the sidebar collapses to 0 height, the canvas
+   shrinks to its default 300x150, and the user sees a near-empty white
+   viewport. The two rules below replicate the Tailwind utilities
+   WITHOUT depending on the CDN, so the layout works even if Tailwind
+   never loads (the visual polish from Tailwind still applies on top). */
+html, body { height:100%; }
+.app-shell { display:flex; height:100vh; width:100%; }
+.app-shell > aside { flex:0 0 310px; min-width:310px; display:flex; flex-direction:column; overflow:hidden; }
+.app-shell > aside > .aside-header { flex:0 0 auto; }
+.app-shell > aside > .aside-scroll { flex:1 1 auto; overflow-y:auto; min-height:0; }
+.app-shell > main { flex:1 1 auto; position:relative; min-width:0; min-height:0; overflow:hidden; }
+#viewport { display:block; width:100%; height:100%; }
 ::-webkit-scrollbar { width:5px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
@@ -107,10 +122,10 @@ body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff
 </style>
 </head>
 <body>
-<div class="flex h-screen">
+<div class="app-shell">
     <!-- Sidebar -->
     <aside class="w-[310px] min-w-[310px] bg-dark-s border-r border-bdr flex flex-col overflow-hidden">
-        <div class="px-4 py-3 border-b border-bdr flex items-center gap-3">
+        <div class="aside-header px-4 py-3 border-b border-bdr flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
                 <span class="material-icons-outlined text-white text-lg">auto_awesome_mosaic</span>
             </div>
@@ -120,7 +135,7 @@ body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff
             </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto">
+        <div class="aside-scroll flex-1 overflow-y-auto">
             <!-- Open / Close (master fold control) -->
             <div class="sidebar-section">
                 <div class="section-title">Open / Close <span class="text-[#94a3b8]">(0% closed &rarr; 100% open &middot; works with any panel count or fold settings)</span></div>
@@ -201,7 +216,7 @@ body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff
                 <div class="section-title">Fold Count</div>
                 <div class="flex items-center gap-2">
                     <button class="action-btn" onclick="adjustPanelCount(-1)"><span class="material-icons-outlined text-sm">remove</span></button>
-                    <input type="number" class="seq-input" id="panel-count" value="6" min="2" max="12" onchange="setPanelCount(this.value)" style="width:54px">
+                    <input type="number" class="seq-input" id="panel-count" value="3" min="2" max="12" onchange="setPanelCount(this.value)" style="width:54px">
                     <button class="action-btn" onclick="adjustPanelCount(1)"><span class="material-icons-outlined text-sm">add</span></button>
                     <span class="text-xs text-[#64748b]">panels</span>
                 </div>
@@ -242,6 +257,27 @@ body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff
                     <span class="text-xs text-[#64748b]">in</span>
                 </div>
                 <div class="mt-2 text-[10px] text-[#64748b] leading-relaxed">Width × Height × Depth of each panel in inches. Changes apply to all panels; the view auto-adjusts so panels never crowd the grid.</div>
+            </div>
+
+            <!-- Per-Panel Widths (uneven fold layouts) -->
+            <!-- One cell per panel with an explicit width input and a reset
+                 button, laid out as a 2-column grid so 12 panels fit in 6
+                 rows. An empty input (or the reset button) drops the panel
+                 back to the global Panel Size W (PW). A "Reset all" button
+                 at the bottom clears every override in one click. The live
+                 resolved widths footer shows the total strip width so the
+                 user can see the effect of their overrides at a glance. -->
+            <div class="sidebar-section">
+                <div class="section-title">Per-Panel Widths <span class="text-[#94a3b8]">(uneven fold layouts &middot; inches)</span></div>
+                <div id="per-panel-widths"></div>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-[10px] text-[#64748b] flex-1">Resolved total: <b id="ppw-resolved-total" style="color:#0f172a">--</b></span>
+                    <button class="action-btn" onclick="resetAllPanelWidths()" title="Reset all per-panel widths to the global Panel Size W"
+                        style="padding:4px 10px;font-size:11px">
+                        <span class="material-icons-outlined" style="font-size:13px">restart_alt</span>Reset All
+                    </button>
+                </div>
+                <div class="mt-2 text-[10px] text-[#64748b] leading-relaxed">Override the global Panel Size width for any individual panel to build uneven fold layouts (e.g. a narrow spine page flanked by wide covers, or a wallet-style cover flap). Empty fields fall back to the global W; the total strip width follows from your overrides.</div>
             </div>
 
             <!-- Cover Page -->
@@ -330,7 +366,7 @@ body { font-family:'Space Grotesk','Noto Sans SC',sans-serif; background:#ffffff
 
     <!-- 3D Viewport -->
     <main id="viewport-container" class="flex-1 relative bg-dark">
-        <canvas id="viewport"></canvas>
+        <canvas id="viewport" style="width:100%;height:100%;display:block"></canvas>
         <div class="view-badge" id="view-badge">OUTSIDE</div>
         <div class="info-bar" id="info-bar">Drag handles to fold &middot; Scroll to zoom &middot; Right-click to orbit &middot; Click panel to select &middot; Hand tool to pan &middot; Drop PDF/image to apply</div>
         <div class="viewport-toolbar" id="viewport-toolbar">
@@ -375,10 +411,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // PT is the panel depth/thickness, in inches (default 0.025) — adjustable via UI.
 let PT = 0.025;
 let PW = 5, PH = 7;
-let NUM = 6;
+let NUM = 3;
 let panelPages = [
-    {front:12,back:11},{front:1,back:10},{front:2,back:9},
-    {front:3,back:8},{front:4,back:7},{front:5,back:6}
+    {front:1,back:null},{front:2,back:null},{front:3,back:4}
 ];
 let foldConfigs = [
     {direction:'valley',sequence:1},{direction:'mountain',sequence:2},
@@ -389,6 +424,11 @@ let foldConfigs = [
 // ==================== State ====================
 let selectedPanel = 0;
 let uploadFace = 'outside';
+// Per-panel custom width overrides (in inches). Index = panel index, value =
+// a positive number for an explicit user-set width, or `null` to fall back
+// to the global Panel Size W (PW). Sized to match NUM whenever the panel
+// count changes; entries past NUM are dropped automatically.
+let panelCustomWidths = [];
 let wrapUploadFace = 'outside';
 let coverMode = 'pair';
 // 'pair'   -> the covers span TWO adjacent outside panels (manually assigned below).
@@ -445,10 +485,28 @@ bgX.fillStyle = bgG; bgX.fillRect(0,0,2,512);
 scene.background = new THREE.CanvasTexture(bgC);
 
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 70);
-camera.position.set(0, 8, 14);
+// Initial camera position is a slight 3/4 view of the strip, framed so a
+// 3-panel default (the new starting layout) is comfortably visible. The
+// distance is intentionally generous so there's headroom for the user to
+// orbit / zoom without immediately losing the panels off-screen. setCameraView()
+// takes over as soon as buildBrochure() runs and rescales the distance to
+// the actual strip width (so a 12-panel strip zooms out automatically).
+camera.position.set(7.5, 6, 16);
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:true});
-renderer.setSize(container.clientWidth, container.clientHeight);
+// Guard against the script running BEFORE the layout has settled (which
+// can leave container.clientWidth/clientHeight at 0 or the canvas's
+// default 300x150 if the Tailwind CDN is slow / blocked). Fall back to
+// the viewport size so the canvas always fills the window, and re-sync
+// once the page finishes loading via the window 'load' handler below.
+function syncRendererSize() {
+    const w = container.clientWidth || window.innerWidth || 800;
+    const h = container.clientHeight || window.innerHeight || 600;
+    renderer.setSize(w, h, true); // true = also update the canvas CSS size
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+}
+syncRendererSize();
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
@@ -460,6 +518,7 @@ controls.dampingFactor = 0.08;
 // so the geometric centre of the unfolded strip is NUM*PW/2 — not PW*(NUM-1)/2
 // (which is the centre of a strip only (NUM-1)*PW wide and would sit PW/2 too
 // far left). Using the true centre keeps the camera framed on the whole strip.
+// For the initial 3-panel default, NUM*PW/2 = 7.5".
 controls.target.set(NUM * PW / 2, 0, 0);
 controls.update();
 
@@ -820,35 +879,63 @@ function computePanelWidths() {
     const allowance = Math.max(0, foldAllowance);
     const minWidth = PW * 0.4;
 
+    // ---- Per-panel custom-width base --------------------------------------
+    // Resolve each panel's "base" width: the user's explicit override (set
+    // per panel in the Per-Panel Widths section) or the default PW. This
+    // is the width the panel WANTS to be, before any creep is applied.
+    let hasCustom = false;
+    const baseWidths = new Array(NUM);
+    for (let i = 0; i < NUM; i++) {
+        if (i < panelCustomWidths.length && panelCustomWidths[i] != null && isFinite(panelCustomWidths[i]) && panelCustomWidths[i] > 0) {
+            baseWidths[i] = panelCustomWidths[i];
+            hasCustom = true;
+        } else {
+            baseWidths[i] = PW;
+        }
+    }
+    // The target total is the sum of the bases. This naturally degrades to
+    // NUM * PW when the user hasn't overridden anything, and becomes the
+    // sum of custom widths when they have -- preserving the user's intent
+    // for an uneven layout.
+    const target = baseWidths.reduce((s, w) => s + w, 0);
+
     // ---- Runs of consecutive same-direction folds: true inward wraps --------
     // Walk the fold lines; whenever fold[i] has the same direction as fold[i-1],
     // panel (i+1) is another inward wrap and is narrowed by one allowance,
     // cumulatively. Reset on direction change.
+    //
+    // Creep only applies to panels WITHOUT a custom override. A user-set
+    // width is treated as their authoritative intent for that panel -- they
+    // have explicitly chosen how wide it should be, and the engine respects
+    // that. (They can still avoid nesting collisions by changing the fold
+    // direction or disabling the fold entirely via the per-fold controls.)
+    widths[0] = baseWidths[0];
     for (let i = 1; i < NUM; i++) {
         const thisFold = foldConfigs[i - 1];
         const prevFold = i >= 2 ? foldConfigs[i - 2] : null;
-        if (prevFold && thisFold.direction === prevFold.direction) {
+        const isOverridden = (i < panelCustomWidths.length && panelCustomWidths[i] != null);
+        if (!isOverridden && prevFold && thisFold.direction === prevFold.direction) {
+            // Same-direction run and no user override: narrow from previous
+            // panel so the wrap nests without colliding into the prior layer.
             widths[i] = Math.max(widths[i - 1] - allowance, minWidth);
         } else {
-            widths[i] = PW; // direction changed (or first hinge) — no collision risk
+            // Either direction changed (no nesting risk) or the user gave an
+            // explicit width for this panel -- use its base directly.
+            widths[i] = baseWidths[i];
         }
     }
 
     // ---- Total-width preservation -----------------------------------------
     // Redistribute the cumulative inward narrowing so the finished document
-    // width stays exactly NUM * PW: add the lost amount back to the first
-    // panel of the run (the innermost/core panel that everything wraps
-    // around). The core grows, the wraps shrink, total unchanged. This
-    // matches real roll-fold / letter-fold prepress where the core panel is
-    // the widest and each outer wrap is progressively narrower.
+    // width matches the target total (= sum of the bases, or NUM * PW when
+    // the user hasn't overridden anything). Any width lost to creep is
+    // given back to panel 0, growing the first panel of every same-direction
+    // run so the runs nest outward from there. The user can still tune each
+    // fold individually from the Fold Line Controls to make the core be any
+    // panel they want.
     const totalNow = widths.reduce((s, w) => s + w, 0);
-    const target = NUM * PW;
     const delta = target - totalNow; // positive: we narrowed too much, add back
     if (Math.abs(delta) > 1e-9) {
-        // Give the reclaimed width to panel 0 (the start of the strip) so the
-        // first panel of every same-direction run grows and the runs nest
-        // outward from there. The user can still tune each fold individually
-        // from the Fold Line Controls to make the core be any panel they want.
         widths[0] = Math.max(widths[0] + delta, minWidth);
     }
 
@@ -1232,8 +1319,86 @@ function buildUI() {
         f.slider = document.getElementById(`slider-${i}`);
         updateFoldRowInteractivity(i);
     }
+    // Per-panel width controls (one row per panel).
+    buildPerPanelWidthsUI();
     populateCoverPanelSelect();
     applyFoldHandleVisibility();
+}
+
+// Builds the Per-Panel Widths section: one row per panel with a number
+// input and a small reset button. Re-runs on any full UI rebuild (panel
+// count change, panel size change). In-place updates (a single panel being
+// edited) go through refreshPerPanelWidthsUI() instead.
+function buildPerPanelWidthsUI() {
+    const el = document.getElementById('per-panel-widths');
+    if (!el) return;
+    el.innerHTML = '';
+    // 2-column grid: at 12 panels this is 6 rows tall, which fits comfortably
+    // next to the other sidebar sections without forcing the user to scroll
+    // through a long single-column list. Each cell is still self-contained
+    // (label + input + reset) so individual panels stay easy to find.
+    el.style.display = 'grid';
+    el.style.gridTemplateColumns = '1fr 1fr';
+    el.style.gap = '6px';
+    for (let i = 0; i < NUM; i++) {
+        const row = document.createElement('div');
+        row.className = 'ppw-row';
+        row.id = `ppw-row-${i}`;
+        row.style.cssText = 'display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:4px 6px;min-width:0';
+        row.innerHTML = `
+            <span style="font-size:10px;font-weight:600;color:#0f172a;min-width:30px;flex-shrink:0">P${i + 1}</span>
+            <input type="number" class="seq-input" id="ppw-input-${i}" min="0.5" max="36" step="0.25"
+                placeholder="${PW}"
+                oninput="setPanelCustomWidth(${i}, this.value)"
+                style="width:48px;flex:1;min-width:0;padding:2px 4px"
+                title="Width in inches. Leave empty to use the global Panel Size W.">
+            <button class="action-btn" id="ppw-reset-${i}" onclick="setPanelCustomWidth(${i}, '')" title="Reset to global Panel Size W"
+                style="padding:1px 4px;font-size:9px;flex-shrink:0">
+                <span class="material-icons-outlined" style="font-size:11px">restart_alt</span>
+            </button>
+        `;
+        el.appendChild(row);
+    }
+    refreshPerPanelWidthsUI();
+}
+
+// Re-paints the Per-Panel Widths rows from the current `panelCustomWidths`
+// state: writes the override value (or empty) into each input, dims rows
+// that have no override, and colours rows with an active override so the
+// user can see at a glance which panels are uneven.
+function refreshPerPanelWidthsUI() {
+    for (let i = 0; i < NUM; i++) {
+        const input = document.getElementById(`ppw-input-${i}`);
+        const row = document.getElementById(`ppw-row-${i}`);
+        if (!input) continue;
+        const v = (i < panelCustomWidths.length) ? panelCustomWidths[i] : null;
+        // Avoid clobbering the value the user is actively typing. Only sync
+        // the input when the document does NOT have focus on it.
+        if (document.activeElement !== input) {
+            input.value = (v == null) ? '' : v;
+        }
+        // Update placeholder to the current global W so it always shows the
+        // value the panel will fall back to.
+        input.placeholder = PW.toFixed(2);
+        // Visual feedback: override rows get a teal border + filled input.
+        if (row) {
+            if (v != null) {
+                row.style.borderColor = 'var(--teal)';
+                row.style.background = 'rgba(14,116,144,0.06)';
+            } else {
+                row.style.borderColor = '#cbd5e1';
+                row.style.background = '#f8fafc';
+            }
+        }
+    }
+    // Live total of the resolved (per-panel override OR fallback) widths,
+    // shown in the section footer. Useful for verifying that the strip
+    // total is what the user wants before they fold.
+    const totalEl = document.getElementById('ppw-resolved-total');
+    if (totalEl) {
+        const total = getStripWidth();
+        totalEl.textContent = `${total.toFixed(2)}"  (${NUM} \u00D7 ${(total / NUM).toFixed(2)}" avg)`;
+    }
 }
 buildUI();
 
@@ -1464,6 +1629,9 @@ window.setFoldAllowance = function(val) {
         lbl.textContent = `${v.toFixed(3)} in · ${mm} mm`;
     }
     updatePanelWidths();
+    // Creep can change the resolved widths for non-overridden panels, so
+    // the per-panel UI should reflect that. (Overridden rows stay the same.)
+    if (typeof refreshPerPanelWidthsUI === 'function') refreshPerPanelWidthsUI();
 };
 
 // Repaints a single fold's 3D visuals (handle/arrow/line color + direction)
@@ -1516,10 +1684,69 @@ window.setPanelSize = function() {
     // Selection highlight box tracks panel size too.
     highlightMesh.geometry.dispose();
     highlightMesh.geometry = new THREE.BoxGeometry(PW+0.04, PH+0.04, PT+0.04);
-    const center = new THREE.Vector3(NUM * PW / 2, 0, 0);
+    // Centre uses the resolved (possibly uneven) panel widths so the camera
+    // and OrbitControls target follow whatever the user has actually laid out.
+    const center = new THREE.Vector3(getStripCenterX(), 0, 0);
     controls.target.copy(center);
     setCameraView('angle');
+    // Per-panel override rows need their placeholders (the fallback W) and
+    // any resolved-width indicators refreshed for the new PW.
+    if (typeof refreshPerPanelWidthsUI === 'function') refreshPerPanelWidthsUI();
     showToast(`Panel size: ${PW}\u00D7${PH}\u00D7${PT} in`);
+};
+
+// Sets (or clears) the per-panel custom width override for panel `idx`.
+//   idx  : zero-based panel index
+//   val  : a positive number (inches) to set as this panel's width, or any
+//          non-finite/zero/negative value (or `null`) to clear the override
+//          and fall back to the global Panel Size W (PW).
+// After updating the override array the brochure is rebuilt so the new
+// width flows through computePanelWidths() into the live panel geometry.
+window.setPanelCustomWidth = function(idx, val) {
+    if (idx < 0 || idx >= NUM) return;
+    let v = parseFloat(val);
+    if (!isFinite(v) || v <= 0) {
+        // Empty / invalid input is treated as "reset to default" so a user
+        // clearing the field falls back to PW rather than blowing up.
+        v = null;
+    } else {
+        // Clamp to the same sane range as the global W input.
+        v = Math.max(0.5, Math.min(36, v));
+    }
+    if (idx >= panelCustomWidths.length) {
+        while (panelCustomWidths.length <= idx) panelCustomWidths.push(null);
+    }
+    panelCustomWidths[idx] = v;
+    // Recompute panel geometries FIRST so panelWidths reflects the new
+    // override. Then update the sidebar UI (which reads panelWidths via
+    // getStripWidth to show the resolved total). The previous order called
+    // refreshPerPanelWidthsUI before updatePanelWidths, which made the
+    // "Resolved total" readout lag one click behind the actual change.
+    updatePanelWidths();
+    refreshPerPanelWidthsUI();
+    // Re-frame the camera so a long/short panel doesn't end up off-screen.
+    const center = new THREE.Vector3(getStripCenterX(), 0, 0);
+    controls.target.copy(center);
+    setCameraView('angle');
+    if (typeof refreshPanelActionMenu === 'function') refreshPanelActionMenu();
+    showToast(v == null
+        ? `Panel ${idx + 1} width reset to default (${PW}")`
+        : `Panel ${idx + 1} width set to ${v.toFixed(2)}"`);
+};
+
+// Resets ALL per-panel width overrides in one click. Handy for starting over
+// from a clean even-width strip after experimenting with uneven layouts.
+window.resetAllPanelWidths = function() {
+    for (let i = 0; i < panelCustomWidths.length; i++) panelCustomWidths[i] = null;
+    // Recompute first, then update UI (so the "Resolved total" readout
+    // shows the post-reset value, not the pre-reset value).
+    updatePanelWidths();
+    refreshPerPanelWidthsUI();
+    const center = new THREE.Vector3(getStripCenterX(), 0, 0);
+    controls.target.copy(center);
+    setCameraView('angle');
+    if (typeof refreshPanelActionMenu === 'function') refreshPanelActionMenu();
+    showToast('All per-panel widths reset to default');
 };
 
 window.setFoldCount = function(count) {
@@ -1536,18 +1763,45 @@ window.setFoldCount = function(count) {
     coverSingleInsidePanel = Math.min(coverSingleInsidePanel, NUM - 1);
     // Keep the cover pair start within the new [0, NUM-2] range
     if (coverFrontPairStart > NUM - 2) coverFrontPairStart = 0;
+    // Resize the per-panel custom-width array to match the new panel count:
+    // new panels inherit `null` (= use the global PW), and any dropped
+    // panels' overrides are discarded.
+    if (panelCustomWidths.length < NUM) {
+        while (panelCustomWidths.length < NUM) panelCustomWidths.push(null);
+    } else if (panelCustomWidths.length > NUM) {
+        panelCustomWidths.length = NUM;
+    }
     panelPages = computePageNumbers(NUM);
     foldConfigs = makeDefaultFoldConfigs(NUM);
-    // Cover-aware renumbering on the fresh defaults (pushes cover-bracketing
-    // folds to the end so covers stay visible until everything else has folded).
-    refreshFoldSequenceForCoverLayout();
     cleanupBrochure();
     buildBrochure();
     buildUI();
+    // Cover-aware renumbering on the freshly-built folds (pushes cover-
+    // bracketing folds to the end so covers stay visible until everything
+    // else has folded). MUST happen AFTER buildBrochure / buildUI because
+    // it walks the live `folds` array + the on-screen Seq inputs — calling
+    // it before the rebuild leaves folds at the OLD length and throws on
+    // folds[i].sequence for i >= old NUM.
+    if (typeof refreshFoldSequenceForCoverLayout === 'function') refreshFoldSequenceForCoverLayout();
     if(countInput) countInput.value = NUM;
-    const center = new THREE.Vector3(NUM * PW / 2, 0, 0);
+    // Centre uses the resolved (possibly uneven) widths so the camera
+    // reframes on the actual strip after rebuild. setCameraView('angle')
+    // then re-zooms to the new total width so a 12-panel strip doesn't end
+    // up off-screen (this is the "preview stops updating past 6 panels"
+    // fix: the previous code only ran NUM*PW and re-used a fixed d=14).
+    const center = new THREE.Vector3(getStripCenterX(), 0, 0);
     controls.target.copy(center);
     setCameraView('angle');
+    // Sanity-check the rebuild actually populated panelMeshes -- if a future
+    // change ever makes buildBrochure fail silently, the user will see an
+    // empty viewport. Catch it here, surface a toast, and keep NUM pinned
+    // to the previous good value so the next click can recover.
+    if (!panelMeshes || panelMeshes.length !== NUM) {
+        console.error('setFoldCount: rebuild produced', panelMeshes ? panelMeshes.length : 0, 'panels, expected', NUM);
+        showToast(`Preview rebuild failed (got ${panelMeshes ? panelMeshes.length : 0}/${NUM} panels). Try a smaller count.`);
+        // Don't change camera framing since the scene is now in a bad state.
+        return;
+    }
     selectPanel(Math.min(selectedPanel, NUM - 1));
     showToast(`Updated to ${NUM} panels with ${NUM - 1} fold lines`);
 };
@@ -3033,21 +3287,48 @@ viewportEl.addEventListener('drop', async (e) => {
     });
 });
 
-// Initialise the drop target text on load
-window.addEventListener('load', () => {
-    updateDropTargetText();
-});
+// (Initial drop-target-text setup is consolidated into the window 'load'
+// handler further down, alongside the late renderer size re-sync.)
+
 
 // ==================== Camera Views ====================
+// Helpers for the actual strip geometry — used by setCameraView() so the
+// camera framing follows uneven per-panel widths, not just NUM * PW.
+function getStripWidth() {
+    // panelWidths is rebuilt on every computePanelWidths() call and is
+    // available once buildBrochure has run. Fall back to NUM*PW before the
+    // first build (e.g. during the very first setCameraView in script init).
+    if (typeof panelWidths !== 'undefined' && panelWidths && panelWidths.length === NUM) {
+        return panelWidths.reduce((s, w) => s + w, 0);
+    }
+    return NUM * PW;
+}
+function getStripCenterX() {
+    return getStripWidth() / 2;
+}
+
 window.setCameraView = function(view) {
-    const center = new THREE.Vector3(NUM * PW / 2, 0, 0);
-    const d = 14;
+    // Camera distance scales with the actual strip width so a 3-panel
+    // preview and a 12-panel preview both frame nicely. The previous hard-
+    // coded d=14 worked for the 6-panel default but left a 12-panel strip
+    // (60" wide) almost entirely off-screen — the user perceived this as
+    // the preview "stopping" once they went past six panels, because every
+    // new panel was being rendered outside the visible frustum.
+    //
+    // We use the resolved panel widths (so uneven per-panel widths are
+    // respected) and scale to roughly 0.55x the strip width with a 6"
+    // floor so very short strips don't become too zoomed-in.
+    const center = new THREE.Vector3(getStripCenterX(), 0, 0);
+    const stripWidth = getStripWidth();
+    const d = Math.max(10, stripWidth * 0.55 + 4);
+    const elev = d * 0.55;
+    const sideOffset = Math.min(6, stripWidth * 0.08);
     let pos;
     switch(view){
         case 'front': pos = new THREE.Vector3(center.x, 0, d); break;
-        case 'back': pos = new THREE.Vector3(center.x, 0, -d); break;
-        case 'top': pos = new THREE.Vector3(center.x, d, 0.1); break;
-        case 'angle': pos = new THREE.Vector3(center.x-2, 8, 12); break;
+        case 'back':  pos = new THREE.Vector3(center.x, 0, -d); break;
+        case 'top':   pos = new THREE.Vector3(center.x, d, 0.1); break;
+        case 'angle': pos = new THREE.Vector3(center.x - sideOffset, elev, d * 0.85); break;
     }
     cameraTarget = {pos, target: center.clone(), progress: 0};
 };
@@ -3232,10 +3513,17 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ==================== Window Resize ====================
 window.addEventListener('resize', () => {
-    const w = container.clientWidth, h = container.clientHeight;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
+    syncRendererSize();
+});
+
+// Re-sync once the page (and any async-loaded styles like the Tailwind
+// CDN) has finished loading. The renderer size is set early in the script
+// when the layout may not have settled yet, so a late re-sync guarantees
+// the canvas is correctly sized to the final viewport no matter when the
+// styles actually take effect.
+window.addEventListener('load', () => {
+    syncRendererSize();
+    if (typeof updateDropTargetText === 'function') updateDropTargetText();
 });
 
 // ==================== Keyboard Shortcuts ====================
