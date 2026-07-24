@@ -228,6 +228,11 @@ html, body { height:100%; }
                     <button class="action-btn" onclick="setCameraView('top')">Top</button>
                     <button class="action-btn" onclick="setCameraView('angle')">Perspective</button>
                 </div>
+                <label class="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                    <input type="checkbox" id="show-grid-toggle" onchange="setGridVisible(this.checked)">
+                    <span class="text-xs text-[#64748b]">Show ground grid</span>
+                </label>
+                <div class="mt-2 text-[10px] text-[#64748b] leading-relaxed">Off by default. Check this to bring back the wireframe reference plane below the panels if you need a ground reference.</div>
             </div>
 
             <!-- Fold Count -->
@@ -586,7 +591,15 @@ const hemiL = new THREE.HemisphereLight(0xffeedd, 0xe2e8f0, 0.35);
 scene.add(hemiL);
 
 // Ground grid
+// Hidden by default per user request — the wireframe reference plane
+// was blocking the view of the folded panels. The grid object is still
+// created (so the Show Grid toggle in the sidebar can bring it back),
+// but it starts with .visible = false and stays out of the scene graph
+// until the user opts in. The lightweight updateGridPosition() function
+// is still useful to keep the position math in one place in case the
+// user later re-enables the grid.
 const gridH = new THREE.GridHelper(30, 30, 0xcbd5e1, 0xe2e8f0);
+gridH.visible = false;
 scene.add(gridH);
 
 // Keeps the grid a consistent clearance below the panels so a taller/shorter
@@ -595,6 +608,14 @@ function updateGridPosition() {
     gridH.position.y = -PH/2 - Math.max(0.1, PH * 0.05);
 }
 updateGridPosition();
+
+// Show / hide the ground grid. Wired to the sidebar checkbox. When
+// hidden, the wireframe lines disappear entirely so they don't block
+// the view; when shown, they render at the subtle default opacity
+// defined above.
+function setGridVisible(visible) {
+    gridH.visible = visible;
+}
 
 // Ambient particles
 const ptCount = 150;
